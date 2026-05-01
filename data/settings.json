@@ -1,0 +1,34 @@
+{
+  "colors": {
+    "primary": "#3156a3",
+    "sidebar_bg": "#1e2a4a",
+    "page_bg": "#f5f6fa",
+    "card_bg": "#ffffff",
+    "text": "#1a1f36",
+    "border": "#e2e5ef"
+  },
+  "display": {
+    "show_member_number": true,
+    "show_age": true,
+    "show_gender": true,
+    "show_email": false,
+    "show_phone": false,
+    "stale_detection": true
+  },
+  "doc_types": [
+    "Datenschutzerklärung",
+    "SEPA-Lastschriftmandat",
+    "Mitgliedsantrag",
+    "Einverständniserklärung",
+    "Ärztliches Attest",
+    "Sonstiges"
+  ],
+  "color_meanings": {
+    "red": "Beitrag ausstehend",
+    "orange": "Daten unvollständig",
+    "yellow": "Kontaktversuch offen",
+    "green": "Alles vollständig",
+    "blue": "Vorstand / Funktionsträger",
+    "purple": "Ehrenmitglied"
+  }
+}

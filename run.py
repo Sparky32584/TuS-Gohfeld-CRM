@@ -41,6 +41,17 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 os.chdir(SCRIPT_DIR)
 sys.path.insert(0, str(SCRIPT_DIR))
 
+# .env.local laden (TUS_DATA_DIR setzen)
+_env_file = SCRIPT_DIR / ".env.local"
+if _env_file.exists():
+    with open(_env_file) as _f:
+        for _line in _f:
+            _line = _line.strip()
+            if _line and not _line.startswith("#") and "=" in _line:
+                _k, _v = _line.split("=", 1)
+                os.environ.setdefault(_k.strip(), _v.strip())
+
+
 # ---------------------------------------------------------------------------
 # 3) Freien Port finden
 # ---------------------------------------------------------------------------
@@ -115,6 +126,10 @@ def main() -> None:
     try:
         port = find_free_port()
         url = f"http://127.0.0.1:{port}"
+
+        # Datenbank initialisieren
+        from app import init_db
+        init_db()
 
         # Flask-Thread starten
         flask_thread = threading.Thread(
