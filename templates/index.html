@@ -1,0 +1,1639 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TuS Gohfeld — Mitgliederverwaltung</title>
+<link rel="icon" href="/favicon.ico">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --primary:    #3156a3;
+    --sidebar-bg: #1e2a4a;
+    --page-bg:    #f5f6fa;
+    --card-bg:    #ffffff;
+    --text:       #1a1f36;
+    --border:     #e2e5ef;
+    --muted:      #6b7280;
+    --success:    #10b981;
+    --warning:    #f59e0b;
+    --danger:     #ef4444;
+    --radius:     10px;
+    --shadow:     0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+    --shadow-lg:  0 10px 25px rgba(0,0,0,.10), 0 4px 10px rgba(0,0,0,.05);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--page-bg);
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .mono { font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace; }
+  a { color: var(--primary); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  hr { border: 0; border-top: 1px solid var(--border); margin: 1rem 0; }
+
+  /* ─── Layout ─────────────────────────────────────────── */
+  .app { display: flex; min-height: 100vh; }
+  .sidebar {
+    width: 240px; flex-shrink: 0;
+    background: var(--sidebar-bg); color: #fff;
+    display: flex; flex-direction: column;
+    position: sticky; top: 0; height: 100vh;
+  }
+  .sidebar-header {
+    padding: 1.5rem 1.25rem 1.25rem;
+    border-bottom: 1px solid rgba(255,255,255,.08);
+  }
+  .sidebar-logo { width: 56px; height: auto; margin-bottom: .75rem; border-radius: 8px; }
+  .sidebar-title { font-size: 1rem; font-weight: 600; letter-spacing: -.01em; }
+  .sidebar-subtitle { font-size: .75rem; opacity: .6; margin-top: .15rem; }
+
+  .sidebar nav { flex: 1; padding: 1rem 0; overflow-y: auto; }
+  .nav-link {
+    display: flex; align-items: center; gap: .85rem;
+    padding: .65rem 1.25rem;
+    color: rgba(255,255,255,.75);
+    cursor: pointer; transition: all .15s;
+    font-size: .9rem; font-weight: 500;
+    border-left: 3px solid transparent;
+    text-decoration: none;
+  }
+  .nav-link:hover { background: rgba(255,255,255,.06); color: #fff; text-decoration: none; }
+  .nav-link.active {
+    background: rgba(255,255,255,.08);
+    border-left-color: var(--primary);
+    color: #fff;
+  }
+  .nav-link .ico {
+    width: 20px; text-align: center;
+    font-size: 1.05rem; opacity: .85;
+  }
+
+  .sidebar-footer {
+    padding: .9rem 1.25rem; font-size: .7rem; opacity: .55;
+    border-top: 1px solid rgba(255,255,255,.08);
+  }
+  .sidebar-footer a { color: inherit; }
+
+  .content { flex: 1; overflow-y: auto; padding: 1.75rem 2rem; }
+  .view { display: none; animation: fade .15s; }
+  .view.active { display: block; }
+  @keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+  .view-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 1.25rem; gap: 1rem; flex-wrap: wrap;
+  }
+  .view-title { font-size: 1.6rem; font-weight: 600; letter-spacing: -.02em; }
+  .view-title .count { font-size: .95rem; color: var(--muted); font-weight: 400; margin-left: .4rem; }
+
+  /* ─── Cards & KPIs ──────────────────────────────────── */
+  .card {
+    background: var(--card-bg); border-radius: var(--radius);
+    box-shadow: var(--shadow); padding: 1.15rem 1.25rem;
+    border: 1px solid var(--border);
+  }
+  .card h3 {
+    font-size: .78rem; font-weight: 600; color: var(--muted);
+    margin-bottom: .6rem; text-transform: uppercase; letter-spacing: .04em;
+  }
+  .grid { display: grid; gap: 1rem; }
+  .kpi-grid { display: grid; gap: 1rem; margin-bottom: 1.25rem;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+  .kpi {
+    background: var(--card-bg); border-radius: var(--radius);
+    padding: 1.15rem 1.25rem; box-shadow: var(--shadow);
+    border: 1px solid var(--border); border-left: 4px solid var(--primary);
+  }
+  .kpi-value {
+    font-family: 'JetBrains Mono', monospace; font-size: 1.9rem;
+    font-weight: 600; color: var(--text); line-height: 1.1;
+  }
+  .kpi-label { font-size: .78rem; color: var(--muted); margin-top: .35rem;
+    text-transform: uppercase; letter-spacing: .04em; font-weight: 500; }
+  .kpi.warn { border-left-color: var(--warning); }
+  .kpi.danger { border-left-color: var(--danger); }
+  .kpi.success { border-left-color: var(--success); }
+
+  .chart-grid { display: grid; gap: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+  .chart-grid canvas { max-height: 260px; }
+
+  /* ─── Buttons ───────────────────────────────────────── */
+  .btn {
+    display: inline-flex; align-items: center; gap: .4rem;
+    padding: .5rem .95rem; border: 1px solid var(--border);
+    background: #fff; border-radius: 8px; cursor: pointer;
+    font-family: inherit; font-size: .88rem; font-weight: 500;
+    color: var(--text); transition: all .12s; text-decoration: none;
+  }
+  .btn:hover { background: var(--page-bg); }
+  .btn-primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .btn-primary:hover { filter: brightness(1.08); background: var(--primary); }
+  .btn-danger { background: var(--danger); color: #fff; border-color: var(--danger); }
+  .btn-danger:hover { filter: brightness(1.08); background: var(--danger); }
+  .btn-ghost { border-color: transparent; background: transparent; }
+  .btn-ghost:hover { background: var(--page-bg); }
+  .btn-icon {
+    padding: .35rem; border: 0; background: transparent;
+    color: var(--muted); cursor: pointer; border-radius: 6px;
+    font-size: 1rem; line-height: 1; transition: all .12s;
+  }
+  .btn-icon:hover { background: var(--page-bg); color: var(--primary); }
+  .btn-icon.danger:hover { color: var(--danger); }
+  .btn-sm { padding: .3rem .6rem; font-size: .8rem; }
+  .btn-row { display: flex; gap: .5rem; flex-wrap: wrap; }
+
+  /* ─── Forms ─────────────────────────────────────────── */
+  .field { display: flex; flex-direction: column; gap: .3rem; margin-bottom: .9rem; }
+  .field label { font-size: .82rem; font-weight: 500; color: #444; }
+  .field small { color: var(--muted); font-size: .75rem; }
+  input[type=text], input[type=search], input[type=email], input[type=tel],
+  input[type=date], input[type=number], input[type=color], select, textarea {
+    padding: .55rem .75rem; border: 1px solid var(--border); border-radius: 6px;
+    font-family: inherit; font-size: .9rem; background: #fff; color: var(--text);
+    transition: all .12s; width: 100%;
+  }
+  input:focus, select:focus, textarea:focus {
+    outline: none; border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(49, 86, 163, .12);
+  }
+  textarea { resize: vertical; min-height: 80px; font-family: inherit; }
+  input[type=color] { padding: 2px; height: 36px; cursor: pointer; }
+  input[type=file] { padding: .4rem; }
+  input[type=checkbox] { accent-color: var(--primary); cursor: pointer; }
+
+  .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: .75rem 1rem; }
+  .form-row .field { margin-bottom: 0; }
+
+  /* ─── Tables ────────────────────────────────────────── */
+  .table-wrap { overflow-x: auto; border-radius: var(--radius);
+    box-shadow: var(--shadow); background: var(--card-bg);
+    border: 1px solid var(--border); }
+  table { width: 100%; border-collapse: collapse; background: transparent; }
+  th, td { text-align: left; padding: .65rem .85rem;
+    border-bottom: 1px solid var(--border); font-size: .88rem; vertical-align: middle; }
+  thead th {
+    background: var(--page-bg); font-weight: 600; font-size: .75rem;
+    color: var(--muted); text-transform: uppercase; letter-spacing: .04em;
+    white-space: nowrap; cursor: pointer; user-select: none;
+    position: sticky; top: 0; z-index: 2;
+  }
+  thead th.sortable:hover { color: var(--primary); }
+  thead th .arrow { display: inline-block; margin-left: .2rem; opacity: .5; }
+  thead th.sorted .arrow { opacity: 1; color: var(--primary); }
+  tbody tr:hover td { background: var(--page-bg); }
+  tbody tr:last-child td { border-bottom: 0; }
+  td.actions { width: 1%; white-space: nowrap; }
+
+  .chip {
+    display: inline-block; padding: .15rem .55rem; border-radius: 999px;
+    background: var(--page-bg); color: var(--muted);
+    font-size: .72rem; font-weight: 500;
+  }
+  .chip.primary { background: rgba(49,86,163,.1); color: var(--primary); }
+  .chip.success { background: rgba(16,185,129,.12); color: var(--success); }
+  .chip.warn    { background: rgba(245,158,11,.12); color: var(--warning); }
+  .chip.danger  { background: rgba(239,68,68,.12); color: var(--danger); }
+
+  /* ─── Farb-Markierungen ─────────────────────────────── */
+  .color-dot {
+    display: inline-block; width: 16px; height: 16px; border-radius: 50%;
+    cursor: pointer; border: 2px solid #fff; box-shadow: 0 0 0 1px var(--border);
+    transition: transform .1s;
+  }
+  .color-dot:hover { transform: scale(1.2); }
+  .color-dot[data-color=red]    { background: #ef4444; }
+  .color-dot[data-color=orange] { background: #f59e0b; }
+  .color-dot[data-color=yellow] { background: #facc15; }
+  .color-dot[data-color=green]  { background: #10b981; }
+  .color-dot[data-color=blue]   { background: #3b82f6; }
+  .color-dot[data-color=purple] { background: #a855f7; }
+  .color-dot[data-color='']     { background: transparent; border-style: dashed; border-color: #ccc; }
+
+  /* ─── Toast ─────────────────────────────────────────── */
+  #toast-container {
+    position: fixed; bottom: 1rem; right: 1rem;
+    display: flex; flex-direction: column; gap: .5rem;
+    z-index: 10000; pointer-events: none;
+  }
+  .toast {
+    padding: .75rem 1.1rem; background: var(--text); color: #fff;
+    border-radius: 8px; box-shadow: var(--shadow-lg); max-width: 420px;
+    animation: slide-in .2s; pointer-events: auto; font-size: .88rem;
+  }
+  .toast.success { background: var(--success); }
+  .toast.error   { background: var(--danger); }
+  .toast.warn    { background: var(--warning); }
+  @keyframes slide-in {
+    from { transform: translateX(100%); opacity: 0; }
+    to   { transform: translateX(0);     opacity: 1; }
+  }
+
+  /* ─── Modal ─────────────────────────────────────────── */
+  .modal-backdrop {
+    position: fixed; inset: 0; background: rgba(15, 23, 42, .55);
+    backdrop-filter: blur(3px); display: flex;
+    align-items: center; justify-content: center; z-index: 9999; padding: 1rem;
+    animation: fade .15s;
+  }
+  .modal {
+    background: var(--card-bg); border-radius: var(--radius); padding: 1.5rem;
+    max-width: 520px; width: 100%; box-shadow: var(--shadow-lg);
+    animation: fade .15s;
+  }
+  .modal h3 { font-size: 1.1rem; margin-bottom: .5rem; }
+  .modal p, .modal .body { color: #444; margin-bottom: 1.25rem; }
+  .modal-actions { display: flex; gap: .5rem; justify-content: flex-end; }
+
+  /* ─── Gruppen-Baum ──────────────────────────────────── */
+  .tree { list-style: none; padding: 0; }
+  .tree ul { list-style: none; padding-left: 1.75rem; margin-top: .25rem;
+    border-left: 1px dashed var(--border); }
+  .tree li { margin: .25rem 0; }
+  .tree-row {
+    display: flex; align-items: center; gap: .6rem; padding: .4rem .5rem;
+    border-radius: 6px; transition: background .12s;
+  }
+  .tree-row:hover { background: var(--page-bg); }
+  .tree-color { width: 4px; align-self: stretch; border-radius: 2px; }
+  .tree-name { font-weight: 500; flex: 1; }
+  .tree-count { font-size: .75rem; color: var(--muted); margin-left: .4rem; }
+  .tree-level {
+    display: inline-block; padding: .1rem .4rem; border-radius: 4px;
+    font-size: .7rem; background: var(--page-bg); color: var(--muted);
+    text-transform: uppercase; font-weight: 500; letter-spacing: .04em;
+  }
+
+  /* ─── Import-Vorschau ───────────────────────────────── */
+  .import-preview-wrap { margin-top: 1.25rem; }
+  .import-preview-wrap input.preview-cell {
+    padding: .3rem .45rem; font-size: .85rem; border: 1px solid transparent;
+    background: transparent;
+  }
+  .import-preview-wrap input.preview-cell:focus { background: #fff; border-color: var(--border); }
+
+  /* ─── Settings ──────────────────────────────────────── */
+  .settings-section { margin-bottom: 1.5rem; }
+  .settings-section h2 {
+    font-size: 1rem; font-weight: 600; margin-bottom: .75rem;
+    color: var(--text);
+  }
+  .color-meaning-row, .doc-type-row {
+    display: flex; align-items: center; gap: .75rem; margin-bottom: .5rem;
+  }
+  .color-meaning-row .color-dot { cursor: default; }
+
+  /* ─── Dokumente-Liste ───────────────────────────────── */
+  .docs-list { display: flex; flex-direction: column; gap: .4rem; margin-top: .5rem; }
+  .doc-item {
+    display: flex; align-items: center; gap: .75rem; padding: .5rem .75rem;
+    background: var(--page-bg); border-radius: 6px; font-size: .85rem;
+  }
+  .doc-item .doc-name { flex: 1; color: var(--primary); cursor: pointer; }
+  .doc-item .doc-name:hover { text-decoration: underline; }
+  .doc-item .doc-type { font-size: .72rem; color: var(--muted); }
+
+  /* ─── Misc ──────────────────────────────────────────── */
+  .empty-state {
+    text-align: center; padding: 3rem 1rem; color: var(--muted);
+    background: var(--card-bg); border: 1px dashed var(--border);
+    border-radius: var(--radius);
+  }
+  .loading { text-align: center; padding: 2rem; color: var(--muted); }
+  .spinner {
+    display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border);
+    border-top-color: var(--primary); border-radius: 50%;
+    animation: spin .6s linear infinite; vertical-align: middle; margin-right: .4rem;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .row-gap { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
+  .text-muted { color: var(--muted); }
+  .text-right { text-align: right; }
+  .nowrap { white-space: nowrap; }
+
+  /* ─── Responsive ────────────────────────────────────── */
+  @media (max-width: 900px) {
+    .sidebar { width: 64px; }
+    .sidebar-title, .sidebar-subtitle, .nav-label, .sidebar-footer span:not(.ico) { display: none; }
+    .nav-link { justify-content: center; padding: .75rem; }
+    .content { padding: 1rem; }
+  }
+  @media print {
+    .sidebar, .btn, .btn-icon, #toast-container, #modal-root { display: none !important; }
+  }
+</style>
+</head>
+
+<body>
+
+<div class="app">
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <img src="/static/logo.png" class="sidebar-logo" alt="TuS Gohfeld"
+           onerror="this.style.display='none'">
+      <div class="sidebar-title">TuS Gohfeld</div>
+      <div class="sidebar-subtitle">Mitgliederverwaltung</div>
+    </div>
+    <nav id="main-nav">
+      <a class="nav-link" data-nav="dashboard"><span class="ico">◆</span><span class="nav-label">Dashboard</span></a>
+      <a class="nav-link" data-nav="members"><span class="ico">☰</span><span class="nav-label">Mitglieder</span></a>
+      <a class="nav-link" data-nav="groups"><span class="ico">▦</span><span class="nav-label">Gruppen</span></a>
+      <a class="nav-link" data-nav="import"><span class="ico">↑</span><span class="nav-label">Import</span></a>
+      <a class="nav-link" data-nav="yearly"><span class="ico">◷</span><span class="nav-label">Jahresauswertung</span></a>
+      <a class="nav-link" data-nav="settings"><span class="ico">⚙</span><span class="nav-label">Einstellungen</span></a>
+    </nav>
+    <div class="sidebar-footer">
+      <span>v1.0 · </span>
+      <a href="https://github.com/Sparky32584/TuS-Gohfeld-CRM" target="_blank">GitHub</a>
+    </div>
+  </aside>
+
+  <main class="content">
+    <!-- Dashboard -->
+    <section class="view" data-view="dashboard">
+      <div class="view-header">
+        <h1 class="view-title">Dashboard</h1>
+        <div class="btn-row">
+          <button class="btn" onclick="exportCSV()">⬇ CSV-Export</button>
+        </div>
+      </div>
+      <div class="kpi-grid" id="kpi-cards"></div>
+      <div class="chart-grid">
+        <div class="card"><h3>Altersverteilung</h3><canvas id="chart-age"></canvas></div>
+        <div class="card"><h3>Geschlecht</h3><canvas id="chart-gender"></canvas></div>
+        <div class="card"><h3>Mitgliedschaftsdauer</h3><canvas id="chart-membership"></canvas></div>
+        <div class="card"><h3>Abteilungen / Gruppen</h3><canvas id="chart-groups"></canvas></div>
+        <div class="card"><h3>App-Nutzung</h3><canvas id="chart-app"></canvas></div>
+        <div class="card"><h3>Farbmarkierungen</h3><canvas id="chart-colors"></canvas></div>
+      </div>
+    </section>
+
+    <!-- Mitglieder -->
+    <section class="view" data-view="members">
+      <div class="view-header">
+        <h1 class="view-title">Mitglieder<span class="count" id="members-count"></span></h1>
+        <div class="btn-row">
+          <button class="btn" id="btn-select-all-toggle" onclick="toggleSelectAll()" style="display:none;">Alle auswählen</button>
+          <button class="btn btn-danger" id="btn-bulk-delete" onclick="bulkDeleteMembers()" style="display:none;">Ausgewählte löschen</button>
+          <button class="btn" onclick="deleteAllMembers()">Alle löschen</button>
+          <button class="btn btn-primary" onclick="openMemberForm()">+ Neues Mitglied</button>
+        </div>
+      </div>
+      <div class="card" style="margin-bottom:1rem;">
+        <div class="form-row">
+          <div class="field"><label>Suche</label>
+            <input type="search" id="f-search" placeholder="Name, Nummer, E-Mail, Ort..."></div>
+          <div class="field"><label>Gruppe</label>
+            <select id="f-group"><option value="">Alle</option></select></div>
+          <div class="field"><label>Farbmarkierung</label>
+            <select id="f-color"><option value="">Alle</option></select></div>
+          <div class="field"><label>App-Status</label>
+            <select id="f-app">
+              <option value="">Alle</option>
+              <option>Nicht installiert</option>
+              <option>Installiert</option>
+              <option>Aktiv</option>
+            </select></div>
+          <div class="field" style="justify-content:end;">
+            <label><input type="checkbox" id="f-active" checked> Nur aktive</label></div>
+        </div>
+      </div>
+      <div id="members-table-wrap"></div>
+    </section>
+
+    <!-- Mitglied-Detail (dynamisch gerendert) -->
+    <section class="view" data-view="member-detail">
+      <div id="member-detail-content"></div>
+    </section>
+
+    <!-- Gruppen -->
+    <section class="view" data-view="groups">
+      <div class="view-header">
+        <h1 class="view-title">Gruppen</h1>
+        <button class="btn btn-primary" onclick="openGroupForm(null, 1)">+ Abteilung</button>
+      </div>
+      <div class="card" style="padding: 1.5rem;"><ul class="tree" id="group-tree"></ul></div>
+    </section>
+
+    <!-- Import -->
+    <section class="view" data-view="import">
+      <div class="view-header">
+        <h1 class="view-title">Import</h1>
+      </div>
+      <div class="card">
+        <div class="form-row">
+          <div class="field">
+            <label>Datei auswählen</label>
+            <small>PDF (digital oder gescannt), CSV, TXT, DOCX, XML / SEPA-XML · max. 100 MB</small>
+            <input type="file" id="import-file" accept=".pdf,.csv,.txt,.docx,.doc,.xml">
+          </div>
+          <div class="field">
+            <label>Abteilung / Gruppe zuweisen</label>
+            <small>Optional — alle importierten Mitglieder werden zugeordnet</small>
+            <select id="import-group"><option value="">Keine Zuordnung</option></select>
+          </div>
+        </div>
+        <div class="btn-row" style="margin-top:1rem;">
+          <button class="btn btn-primary" onclick="uploadImport()">⇪ Datei hochladen &amp; vorschauen</button>
+        </div>
+      </div>
+      <div id="import-preview" class="import-preview-wrap"></div>
+    </section>
+
+    <!-- Jahresauswertung -->
+    <section class="view" data-view="yearly">
+      <div class="view-header">
+        <h1 class="view-title">Jahresauswertung</h1>
+        <div class="btn-row">
+          <label class="field" style="margin:0;">
+            <select id="year-picker" onchange="renderYearly()"></select>
+          </label>
+          <button class="btn btn-primary" onclick="downloadYearlyPdf()">⬇ PDF-Bericht</button>
+        </div>
+      </div>
+      <div id="yearly-content" class="loading"><span class="spinner"></span> lädt…</div>
+    </section>
+
+    <!-- Einstellungen -->
+    <section class="view" data-view="settings">
+      <div class="view-header">
+        <h1 class="view-title">Einstellungen</h1>
+        <div class="btn-row">
+          <button class="btn" onclick="resetSettings()">Zurücksetzen</button>
+          <button class="btn btn-primary" onclick="saveSettings()">✓ Speichern</button>
+        </div>
+      </div>
+      <div id="settings-content"></div>
+    </section>
+  </main>
+</div>
+
+<div id="toast-container"></div>
+<div id="modal-root"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+/* ══════════════════════════════════════════════════════════════════════
+ * TuS Gohfeld Mitgliederverwaltung — SPA Frontend
+ * Kommuniziert ausschließlich über die REST-API mit dem Flask-Backend.
+ * ══════════════════════════════════════════════════════════════════════ */
+
+'use strict';
+
+/* ═════ Konstanten ════════════════════════════════════════════════════ */
+const COLOR_MARKS = ['red', 'orange', 'yellow', 'green', 'blue', 'purple'];
+const COLOR_HEX = {
+  red: '#ef4444', orange: '#f59e0b', yellow: '#facc15',
+  green: '#10b981', blue: '#3b82f6', purple: '#a855f7',
+};
+const APP_STATUS = ['Nicht installiert', 'Installiert', 'Aktiv'];
+const CHART_PALETTE = [
+  '#3156a3', '#f59e0b', '#10b981', '#ef4444', '#a855f7',
+  '#3b82f6', '#facc15', '#8b5cf6', '#06b6d4', '#f97316',
+];
+
+/* ═════ State ═════════════════════════════════════════════════════════ */
+const state = {
+  view: 'dashboard',
+  settings: null,
+  members: [],
+  membersSort: { key: 'last_name', dir: 'asc' },
+  membersSelected: new Set(),
+  groupsFlat: [],
+  groupsTree: [],
+  filters: { search: '', group_id: '', color_mark: '', app_status: '', active_only: true },
+  currentMember: null,
+  importCandidates: [],
+  charts: {},
+  yearlyData: null,
+};
+
+/* ═════ API-Helper ════════════════════════════════════════════════════ */
+async function api(path, opts = {}) {
+  const init = {
+    method: opts.method || 'GET',
+    headers: {},
+  };
+  if (opts.body instanceof FormData) {
+    init.body = opts.body;
+  } else if (opts.body) {
+    init.headers['Content-Type'] = 'application/json';
+    init.body = JSON.stringify(opts.body);
+  }
+  const res = await fetch(path, init);
+  const text = await res.text();
+  let data;
+  try { data = text ? JSON.parse(text) : null; } catch { data = text; }
+  if (!res.ok) {
+    const msg = (data && data.error) || `HTTP ${res.status}`;
+    throw new Error(msg);
+  }
+  return data;
+}
+
+/* ═════ Toast ═════════════════════════════════════════════════════════ */
+function toast(msg, type = 'info', ms = 3000) {
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.textContent = msg;
+  document.getElementById('toast-container').appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 200); }, ms);
+}
+
+/* ═════ Modal / Confirm ═══════════════════════════════════════════════ */
+function modalOpen(html) {
+  const root = document.getElementById('modal-root');
+  root.innerHTML = `<div class="modal-backdrop"><div class="modal">${html}</div></div>`;
+  return root.querySelector('.modal');
+}
+function modalClose() { document.getElementById('modal-root').innerHTML = ''; }
+
+function confirmDialog(title, body, { confirmText = 'OK', cancelText = 'Abbrechen', danger = false } = {}) {
+  return new Promise((resolve) => {
+    const m = modalOpen(`
+      <h3>${escapeHtml(title)}</h3>
+      <div class="body">${body}</div>
+      <div class="modal-actions">
+        <button class="btn" id="m-cancel">${escapeHtml(cancelText)}</button>
+        <button class="btn ${danger ? 'btn-danger' : 'btn-primary'}" id="m-ok">${escapeHtml(confirmText)}</button>
+      </div>`);
+    m.querySelector('#m-cancel').onclick = () => { modalClose(); resolve(false); };
+    m.querySelector('#m-ok').onclick = () => { modalClose(); resolve(true); };
+  });
+}
+
+/* ═════ Helpers ═══════════════════════════════════════════════════════ */
+function escapeHtml(s) {
+  if (s === null || s === undefined) return '';
+  return String(s).replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+}
+function formatDate(iso) {
+  if (!iso) return '';
+  const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? `${m[3]}.${m[2]}.${m[1]}` : iso;
+}
+function calcAge(iso) {
+  if (!iso) return '';
+  const b = new Date(iso); if (isNaN(b)) return '';
+  const today = new Date();
+  let age = today.getFullYear() - b.getFullYear();
+  if (today.getMonth() < b.getMonth() ||
+      (today.getMonth() === b.getMonth() && today.getDate() < b.getDate())) age--;
+  return age;
+}
+function groupLabel(g) {
+  // "Turnen > Kinderturnen > Montag 16 Uhr"
+  const parts = [];
+  let cur = g;
+  while (cur) {
+    parts.unshift(cur.name);
+    cur = state.groupsFlat.find(x => x.id === cur.parent_id);
+  }
+  return parts.join(' › ');
+}
+function flattenTree(tree, out = []) {
+  for (const n of tree) {
+    out.push(n);
+    if (n.children && n.children.length) flattenTree(n.children, out);
+  }
+  return out;
+}
+
+/* ═════ Navigation ════════════════════════════════════════════════════ */
+function navigate(view, opts = {}) {
+  state.view = view;
+  document.querySelectorAll('[data-view]').forEach(s =>
+    s.classList.toggle('active', s.dataset.view === view));
+  document.querySelectorAll('.nav-link').forEach(a =>
+    a.classList.toggle('active', a.dataset.nav === view));
+
+  if (location.hash !== '#' + view) location.hash = view;
+  document.querySelector('.content').scrollTop = 0;
+
+  const renderers = {
+    dashboard: renderDashboard,
+    members:   renderMembers,
+    groups:    renderGroups,
+    import:    renderImport,
+    yearly:    initYearly,
+    settings:  renderSettings,
+    'member-detail': () => {},
+  };
+  if (renderers[view]) renderers[view](opts);
+}
+
+/* ═════════════════════════════════════════════════════════════════════
+ * DASHBOARD
+ * ═════════════════════════════════════════════════════════════════════ */
+async function renderDashboard() {
+  try {
+    const s = await api('/api/stats');
+    renderKpis(s);
+    drawDoughnut('chart-age',       s.age);
+    drawDoughnut('chart-gender',    s.gender);
+    drawDoughnut('chart-membership', s.membership);
+    drawDoughnut('chart-groups',    s.groups);
+    drawDoughnut('chart-app',       s.app_status);
+    drawDoughnut('chart-colors',    s.colors);
+  } catch (e) { toast('Fehler beim Laden: ' + e.message, 'error'); }
+}
+
+function renderKpis(s) {
+  const kpis = [
+    { v: s.active,        l: 'Aktive Mitglieder' },
+    { v: s.inactive,      l: 'Inaktive',          cls: 'danger' },
+    { v: s.groups_count,  l: 'Gruppen' },
+    { v: s.karteileichen, l: 'Karteileichen',     cls: 'warn' },
+    { v: s.app_users,     l: 'App-Nutzer',        cls: 'success' },
+    { v: s.total,         l: 'Gesamt' },
+  ];
+  document.getElementById('kpi-cards').innerHTML = kpis.map(k =>
+    `<div class="kpi ${k.cls || ''}">
+      <div class="kpi-value">${k.v}</div>
+      <div class="kpi-label">${escapeHtml(k.l)}</div>
+    </div>`).join('');
+}
+
+function drawDoughnut(canvasId, data) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  if (state.charts[canvasId]) state.charts[canvasId].destroy();
+  const entries = Object.entries(data || {}).filter(([, v]) => v > 0);
+  if (!entries.length) {
+    canvas.parentElement.innerHTML = `<h3>${canvas.parentElement.querySelector('h3').textContent}</h3>
+      <div class="text-muted" style="text-align:center;padding:2rem;">Keine Daten</div>`;
+    return;
+  }
+  const labels = entries.map(e => e[0]);
+  const values = entries.map(e => e[1]);
+  state.charts[canvasId] = new Chart(canvas, {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{
+        data: values,
+        backgroundColor: labels.map((l, i) => canvasId === 'chart-colors' && COLOR_HEX[l]
+          ? COLOR_HEX[l] : CHART_PALETTE[i % CHART_PALETTE.length]),
+        borderColor: '#fff', borderWidth: 2,
+      }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
+        tooltip: { callbacks: { label: (ctx) =>
+          `${ctx.label}: ${ctx.parsed} (${(ctx.parsed / values.reduce((a, b) => a + b) * 100).toFixed(1)} %)` } },
+      },
+    },
+  });
+}
+
+async function exportCSV() {
+  window.location.href = '/api/export/csv';
+}
+
+/* ═════════════════════════════════════════════════════════════════════
+ * MITGLIEDERLISTE
+ * ═════════════════════════════════════════════════════════════════════ */
+async function renderMembers() {
+  await loadGroupsIntoFilter();
+  await loadColorFilter();
+  setupMemberFilters();
+  await loadMembers();
+}
+
+async function loadGroupsIntoFilter() {
+  if (!state.groupsFlat.length) {
+    state.groupsFlat = await api('/api/groups');
+    state.groupsTree = await api('/api/groups/tree');
+  }
+  const sel = document.getElementById('f-group');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">Alle</option>' +
+    state.groupsFlat.map(g => `<option value="${g.id}">${'— '.repeat(g.level - 1)}${escapeHtml(g.name)}</option>`).join('');
+  sel.value = cur;
+
+  // Import-Gruppen-Dropdown parallel befüllen
+  const impSel = document.getElementById('import-group');
+  if (impSel) {
+    impSel.innerHTML = '<option value="">Keine Zuordnung</option>' +
+      state.groupsFlat.map(g => `<option value="${g.id}">${'— '.repeat(g.level - 1)}${escapeHtml(g.name)}</option>`).join('');
+  }
+}
+
+async function loadColorFilter() {
+  if (!state.settings) state.settings = await api('/api/settings');
+  const sel = document.getElementById('f-color');
+  const cur = sel.value;
+  const meanings = state.settings.color_meanings || {};
+  sel.innerHTML = '<option value="">Alle</option>' +
+    COLOR_MARKS.map(c => `<option value="${c}">● ${meanings[c] || c}</option>`).join('') +
+    '<option value="__none">(keine)</option>';
+  sel.value = cur;
+}
+
+function setupMemberFilters() {
+  const bind = (id, key) => {
+    const el = document.getElementById(id);
+    el.value = state.filters[key] ?? '';
+    if (key === 'active_only') {
+      el.checked = state.filters.active_only;
+      el.onchange = () => { state.filters.active_only = el.checked; loadMembers(); };
+    } else {
+      el.oninput = debounce(() => { state.filters[key] = el.value; loadMembers(); }, 250);
+      el.onchange = () => { state.filters[key] = el.value; loadMembers(); };
+    }
+  };
+  bind('f-search', 'search');
+  bind('f-group', 'group_id');
+  bind('f-color', 'color_mark');
+  bind('f-app', 'app_status');
+  bind('f-active', 'active_only');
+}
+
+function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
+
+async function loadMembers() {
+  const params = new URLSearchParams();
+  const f = state.filters;
+  if (f.search)        params.set('search', f.search);
+  if (f.group_id)      params.set('group_id', f.group_id);
+  if (f.color_mark === '__none')     params.set('color_mark', '');
+  else if (f.color_mark)             params.set('color_mark', f.color_mark);
+  if (f.app_status)    params.set('app_status', f.app_status);
+  params.set('active_only', f.active_only ? 'true' : 'false');
+
+  try {
+    state.members = await api('/api/members?' + params);
+    state.membersSelected.clear();
+    renderMembersTable();
+  } catch (e) { toast('Fehler: ' + e.message, 'error'); }
+}
+
+function renderMembersTable() {
+  const disp = (state.settings && state.settings.display) || {};
+  const { key, dir } = state.membersSort;
+  const mult = dir === 'asc' ? 1 : -1;
+  const sorted = [...state.members].sort((a, b) => {
+    let va = a[key], vb = b[key];
+    if (key === 'age') { va = a.age ?? 999; vb = b.age ?? 999; }
+    if (va === null || va === undefined) va = '';
+    if (vb === null || vb === undefined) vb = '';
+    if (typeof va === 'string') return va.localeCompare(vb, 'de') * mult;
+    return (va - vb) * mult;
+  });
+
+  document.getElementById('members-count').textContent = `(${sorted.length})`;
+  document.getElementById('btn-select-all-toggle').style.display = sorted.length ? '' : 'none';
+
+  const meanings = (state.settings && state.settings.color_meanings) || {};
+
+  const arrow = (k) => state.membersSort.key === k
+    ? `<span class="arrow">${state.membersSort.dir === 'asc' ? '▲' : '▼'}</span>`
+    : '<span class="arrow">↕</span>';
+
+  const cols = [];
+  cols.push({ h: `<input type="checkbox" id="check-all" onchange="toggleSelectAll(this.checked)">`, k: null, cls: 'actions' });
+  cols.push({ h: 'Farbe', k: null });
+  if (disp.show_member_number !== false) cols.push({ h: 'Nr' + arrow('member_number'), k: 'member_number' });
+  cols.push({ h: 'Name' + arrow('last_name'), k: 'last_name' });
+  if (disp.show_age !== false)    cols.push({ h: 'Alter' + arrow('age'), k: 'age' });
+  if (disp.show_gender !== false) cols.push({ h: 'Geschl.', k: null });
+  if (disp.show_email)            cols.push({ h: 'E-Mail', k: null });
+  if (disp.show_phone)            cols.push({ h: 'Telefon', k: null });
+  cols.push({ h: 'App' + arrow('app_status'), k: 'app_status' });
+  cols.push({ h: 'Eintritt' + arrow('entry_date'), k: 'entry_date' });
+  cols.push({ h: '', k: null, cls: 'actions' });
+
+  const thead = cols.map(c => {
+    const sortCls = c.k ? 'sortable' : '';
+    const sorted = c.k === state.membersSort.key ? 'sorted' : '';
+    const onclick = c.k ? `onclick="sortMembers('${c.k}')"` : '';
+    return `<th class="${sortCls} ${sorted} ${c.cls || ''}" ${onclick}>${c.h}</th>`;
+  }).join('');
+
+  const body = sorted.length ? sorted.map(m => {
+    const sel = state.membersSelected.has(m.id);
+    const ktl = m.karteileiche ? '<span class="chip warn" title="Karteileiche">⚠</span>' : '';
+    const row = [];
+    row.push(`<td class="actions"><input type="checkbox" ${sel ? 'checked' : ''} onchange="toggleSelect(${m.id}, this.checked)"></td>`);
+    row.push(`<td><span class="color-dot" data-color="${m.color_mark || ''}"
+      title="${escapeHtml(meanings[m.color_mark] || 'keine Markierung')}"
+      onclick="cycleColor(${m.id}, event)"></span></td>`);
+    if (disp.show_member_number !== false) row.push(`<td class="mono">${escapeHtml(m.member_number || '')}</td>`);
+    row.push(`<td><a href="#" onclick="event.preventDefault(); openMemberForm(${m.id})">
+      <strong>${escapeHtml(m.last_name)}</strong>, ${escapeHtml(m.first_name)}</a> ${ktl}</td>`);
+    if (disp.show_age !== false)    row.push(`<td class="mono">${m.age ?? ''}</td>`);
+    if (disp.show_gender !== false) row.push(`<td>${escapeHtml(m.gender || '—')}</td>`);
+    if (disp.show_email)            row.push(`<td>${escapeHtml(m.email || '')}</td>`);
+    if (disp.show_phone)            row.push(`<td>${escapeHtml(m.phone || '')}</td>`);
+    row.push(`<td>${appStatusChip(m.app_status)}</td>`);
+    row.push(`<td>${formatDate(m.entry_date)}</td>`);
+    row.push(`<td class="actions">
+      <button class="btn-icon" title="Bearbeiten" onclick="openMemberForm(${m.id})">✎</button>
+      <button class="btn-icon danger" title="Löschen" onclick="deleteMember(${m.id})">🗑</button></td>`);
+    return `<tr>${row.join('')}</tr>`;
+  }).join('') : `<tr><td colspan="${cols.length}" class="empty-state">Keine Mitglieder gefunden</td></tr>`;
+
+  document.getElementById('members-table-wrap').innerHTML =
+    `<div class="table-wrap"><table><thead><tr>${thead}</tr></thead><tbody>${body}</tbody></table></div>`;
+
+  document.getElementById('btn-bulk-delete').style.display = state.membersSelected.size ? '' : 'none';
+}
+
+function appStatusChip(s) {
+  if (s === 'Aktiv')        return `<span class="chip success">${s}</span>`;
+  if (s === 'Installiert')  return `<span class="chip primary">${s}</span>`;
+  return `<span class="chip">Nicht installiert</span>`;
+}
+
+function sortMembers(key) {
+  if (state.membersSort.key === key) {
+    state.membersSort.dir = state.membersSort.dir === 'asc' ? 'desc' : 'asc';
+  } else {
+    state.membersSort.key = key; state.membersSort.dir = 'asc';
+  }
+  renderMembersTable();
+}
+
+function toggleSelect(id, checked) {
+  if (checked) state.membersSelected.add(id); else state.membersSelected.delete(id);
+  renderMembersTable();
+}
+function toggleSelectAll(checked) {
+  if (checked === undefined) {
+    const all = state.membersSelected.size === state.members.length;
+    state.membersSelected = all ? new Set() : new Set(state.members.map(m => m.id));
+  } else {
+    state.membersSelected = checked ? new Set(state.members.map(m => m.id)) : new Set();
+  }
+  renderMembersTable();
+}
+
+async function cycleColor(memberId, ev) {
+  ev.stopPropagation();
+  const m = state.members.find(x => x.id === memberId);
+  if (!m) return;
+  const idx = COLOR_MARKS.indexOf(m.color_mark);
+  const next = idx >= 0 && idx < COLOR_MARKS.length - 1 ? COLOR_MARKS[idx + 1]
+             : idx === COLOR_MARKS.length - 1 ? '' : COLOR_MARKS[0];
+  try {
+    await api(`/api/members/${memberId}/color`, { method: 'PATCH', body: { color_mark: next } });
+    m.color_mark = next;
+    renderMembersTable();
+  } catch (e) { toast('Fehler: ' + e.message, 'error'); }
+}
+
+async function deleteMember(id) {
+  const m = state.members.find(x => x.id === id);
+  const ok = await confirmDialog('Mitglied löschen?',
+    `<p>Möchtest du <strong>${escapeHtml(m.first_name)} ${escapeHtml(m.last_name)}</strong> wirklich löschen?</p>
+     <p class="text-muted">Alle zugehörigen Dokumente werden ebenfalls gelöscht.</p>`,
+    { confirmText: 'Löschen', danger: true });
+  if (!ok) return;
+  try {
+    await api(`/api/members/${id}`, { method: 'DELETE' });
+    toast('Mitglied gelöscht', 'success');
+    loadMembers();
+  } catch (e) { toast('Fehler: ' + e.message, 'error'); }
+}
+
+async function bulkDeleteMembers() {
+  const n = state.membersSelected.size;
+  if (!n) return;
+  const ok = await confirmDialog(`${n} Mitglieder löschen?`,
+    `<p>Sollen die ausgewählten <strong>${n} Mitglieder</strong> wirklich gelöscht werden?</p>`,
+    { confirmText: 'Löschen', danger: true });
+  if (!ok) return;
+  try {
+    await api('/api/members/bulk-delete', { method: 'POST',
+      body: { ids: [...state.membersSelected] } });
+    toast(`${n} Mitglieder gelöscht`, 'success');
+    state.membersSelected.clear();
+    loadMembers();
+  } catch (e) { toast('Fehler: ' + e.message, 'error'); }
+}
+
+async function deleteAllMembers() {
+  const step1 = await confirmDialog('⚠ Wirklich ALLE Mitglieder löschen?',
+    `<p>Dies löscht <strong>alle</strong> Mitglieder und deren Dokumente.</p>
+     <p class="text-muted">Gruppen und Einstellungen bleiben erhalten.</p>`,
+    { confirmText: 'Weiter', danger: true });
+  if (!step1) return;
+  const step2 = await confirmDialog('Letzte Bestätigung',
+    `<p>Bist du absolut sicher? Dies kann <strong>nicht</strong> rückgängig gemacht werden.</p>`,
+    { confirmText: 'Alle löschen', danger: true });
+  if (!step2) return;
+  try {
+    await api('/api/members/bulk-delete', { method: 'POST',
+      body: { ids: state.members.map(m => m.id) } });
+    toast('Alle Mitglieder gelöscht', 'success');
+    loadMembers();
+  } catch (e) { toast('Fehler: ' + e.message, 'error'); }
+}
+
+/* ═════════════════════════════════════════════════════════════════════
+ * MITGLIED-DETAIL / FORMULAR
+ * ═════════════════════════════════════════════════════════════════════ */
+async function openMemberForm(id = null) {
+  state.currentMember = null;
+  navigate('member-detail');
+  const wrap = document.getElementById('member-detail-content');
+  wrap.innerHTML = '<div class="loading"><span class="spinner"></span> lädt…</div>';
+
+  try {
+    if (!state.groupsTree.length) state.groupsTree = await api('/api/groups/tree');
+    if (!state.settings) state.settings = await api('/api/settings');
+    const m = id ? await api(`/api/members/${id}`)
+                 : blankMember();
+    state.currentMember = m;
+    renderMemberForm(m);
+  } catch (e) { toast('Fehler: ' + e.message, 'error'); }
+}
+
+function blankMember() {
+  return {
+    id: null, member_number: '', first_name: '', last_name: '',
+    birth_date: '', gender: '', email: '', phone: '',
+    street: '', zip_code: '32584', city: 'Löhne',
+    entry_date: new Date().toISOString().slice(0, 10),
+    exit_date: '', color_mark: '', app_status: 'Nicht installiert',
+    notes: '', is_active: 1, groups: [], documents: [],
+  };
+}
+
+function renderMemberForm(m) {
+  const meanings = (state.settings && state.settings.color_meanings) || {};
+  const docTypes = (state.settings && state.settings.doc_types) || ['Sonstiges'];
+  const wrap = document.getElementById('member-detail-content');
+  const groupSet = new Set((m.groups || []).map(g => g.id));
+
+  wrap.innerHTML = `
+    <div class="view-header">
+      <div>
+        <a href="#" onclick="event.preventDefault(); navigate('members')" class="text-muted">← zurück</a>
+        <h1 class="view-title">${m.id ? 'Mitglied bearbeiten' : 'Neues Mitglied'}</h1>
+      </div>
+      <div class="btn-row">
+        ${m.id ? `<button class="btn btn-danger" onclick="deleteMemberFromForm(${m.id})">Löschen</button>` : ''}
+        <button class="btn" onclick="navigate('members')">Abbrechen</button>
+        <button class="btn btn-primary" onclick="saveMemberForm()">✓ Speichern</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Stammdaten</h3>
+      <div class="form-row">
+        <div class="field"><label>Mitgliedsnummer</label>
+          <input type="text" id="m-number" value="${escapeHtml(m.member_number || '')}"
+            placeholder="(auto)" class="mono"></div>
+        <div class="field"><label>Vorname *</label>
+          <input type="text" id="m-first" value="${escapeHtml(m.first_name)}" required></div>
+        <div class="field"><label>Nachname *</label>
+          <input type="text" id="m-last" value="${escapeHtml(m.last_name)}" required></div>
+        <div class="field"><label>Geburtsdatum</label>
+          <input type="date" id="m-birth" value="${m.birth_date || ''}"></div>
+        <div class="field"><label>Geschlecht</label>
+          <select id="m-gender">
+            <option value="">—</option>
+            <option value="männlich" ${m.gender === 'männlich' ? 'selected' : ''}>männlich</option>
+            <option value="weiblich" ${m.gender === 'weiblich' ? 'selected' : ''}>weiblich</option>
+            <option value="divers" ${m.gender === 'divers' ? 'selected' : ''}>divers</option>
+          </select></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:1rem;">
+      <h3>Kontakt</h3>
+      <div class="form-row">
+        <div class="field"><label>E-Mail</label>
+          <input type="email" id="m-email" value="${escapeHtml(m.email || '')}"></div>
+        <div class="field"><label>Telefon</label>
+          <input type="tel" id="m-phone" value="${escapeHtml(m.phone || '')}"></div>
+        <div class="field"><label>Straße</label>
+          <input type="text" id="m-street" value="${escapeHtml(m.street || '')}"></div>
+        <div class="field"><label>PLZ</label>
+          <input type="text" id="m-zip" value="${escapeHtml(m.zip_code || '32584')}" class="mono"></div>
+        <div class="field"><label>Ort</label>
+          <input type="text" id="m-city" value="${escapeHtml(m.city || 'Löhne')}"></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:1rem;">
+      <h3>Mitgliedschaft</h3>
+      <div class="form-row">
+        <div class="field"><label>Eintritt</label>
+          <input type="date" id="m-entry" value="${m.entry_date || ''}"></div>
+        <div class="field"><label>Austritt (leer = aktiv)</label>
+          <input type="date" id="m-exit" value="${m.exit_date || ''}"></div>
+        <div class="field"><label>App-Status</label>
+          <select id="m-app">
+            ${APP_STATUS.map(s => `<option ${m.app_status === s ? 'selected' : ''}>${s}</option>`).join('')}
+          </select></div>
+        <div class="field"><label>Farbmarkierung</label>
+          <select id="m-color">
+            <option value="">(keine)</option>
+            ${COLOR_MARKS.map(c => `<option value="${c}" ${m.color_mark === c ? 'selected' : ''}>${meanings[c] || c}</option>`).join('')}
+          </select></div>
+      </div>
+      <div class="field"><label>Notizen</label>
+        <textarea id="m-notes">${escapeHtml(m.notes || '')}</textarea></div>
+    </div>
+
+    <div class="card" style="margin-top:1rem;">
+      <h3>Gruppen</h3>
+      <div id="m-groups-tree">${renderGroupCheckboxes(state.groupsTree, groupSet)}</div>
+    </div>
+
+    <div class="card" style="margin-top:1rem;">
+      <h3>Dokumente</h3>
+      ${m.id ? renderMemberDocuments(m.documents || [], docTypes, m.id) :
+        '<p class="text-muted">Dokumente können nach dem ersten Speichern hochgeladen werden.</p>'}
+    </div>`;
+}
+
+function renderGroupCheckboxes(nodes, sel, depth = 0) {
+  if (!nodes || !nodes.length) return '<p class="text-muted">Noch keine Gruppen angelegt.</p>';
+  return `<ul class="tree" style="padding-left:${depth ? '1.25rem' : '0'};list-style:none;">
+    ${nodes.map(g => `
+      <li>
+        <label class="tree-row" style="cursor:pointer;">
+          <input type="checkbox" value="${g.id}" ${sel.has(g.id) ? 'checked' : ''}
+            class="m-group-chk">
+          <span class="tree-color" style="background:${g.color};width:3px;"></span>
+          <span class="tree-name">${escapeHtml(g.name)}</span>
+          <span class="tree-level">L${g.level}</span>
+        </label>
+        ${g.children && g.children.length ? renderGroupCheckboxes(g.children, sel, depth + 1) : ''}
+      </li>`).join('')}</ul>`;
+}
+
+function renderMemberDocuments(docs, types, memberId) {
+  const list = docs.length ? `<div class="docs-list">
+    ${docs.map(d => `
+      <div class="doc-item">
+        <span class="doc-name" onclick="window.location.href='/api/documents/${d.id}/download'">${escapeHtml(d.original_name)}</span>
+        <span class="doc-type">${escapeHtml(d.doc_type)}</span>
+        <span class="text-muted nowrap">${escapeHtml(d.uploaded_at || '')}</span>
+        <button class="btn-icon danger" title="Löschen" onclick="deleteDocument(${d.id})">🗑</button>
+      </div>`).join('')}
+  </div>` : '<p class="text-muted">Noch keine Dokumente hochgeladen.</p>';
+
+  return list + `
+    <hr>
+    <div class="form-row">
+      <div class="field"><label>Dokumenttyp</label>
+        <select id="doc-type">
+          ${types.map(t => `<option>${escapeHtml(t)}</option>`).join('')}
+        </select></div>
+      <div class="field"><label>Datei auswählen</label>
+        <input type="file" id="doc-file"></div>
+    </div>
+    <button class="btn" onclick="uploadDocument(${memberId})">⇪ Hochladen</button>`;
+}
+
+async function uploadDocument(memberId) {
+  const file = document.getElementById('doc-file').files[0];
+  const type = document.getElementById('doc-type').value;
+  if (!file) { toast('Keine Datei ausgewählt', 'warn'); return; }
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('doc_type', type);
+  try {
+    await api(`/api/members/${memberId}/documents`, { method: 'POST', body: fd });
+    toast('Dokument hochgeladen', 'success');
+    openMemberForm(memberId);
+  } catch (e) { toast('Fehler: ' + e.message, 'error'); }
+}
+
+async function deleteDocument(docId) {
+  const ok = await confirmDialog('Dokument löschen?', '<p>Datei und Eintrag werden unwiderruflich entfernt.</p>',
+    { confirmText: 'Löschen', danger: true });
+  if (!ok) return;
+  try {
+    await api(`/api/documents/${docId}`, { method: 'DELETE' });
+    toast('Dokument gelöscht', 'success');
+    if (state.currentMember) openMemberForm(state.currentMember.id);
+  } catch (e) { toast('Fehler: ' + e.message, 'error'); }
+}
+
+async function saveMemberForm() {
+  const body = {
+    member_number: document.getElementById('m-number').value.trim(),
+    first_name:    document.getElementById('m-first').value.trim(),
+    last_name:     document.getElementById('m-last').value.trim(),
+    birth_date:    document.getElementById('m-birth').value,
+    gender:        document.getElementById('m-gender').value,
+    email:         document.getElementById('m-email').value.trim(),
+    phone:         document.getElementById('m-phone').value.trim(),
+    street:        document.getElementById('m-street').value.trim(),
+    zip_code:      document.getElementById('m-zip').value.trim(),
+    city:          document.getElementById('m-city').value.trim(),
+    entry_date:    document.getElementById('m-entry').value,
+    exit_date:     document.getElementById('m-exit').value,
+    app_status:    document.getElementById('m-app').value,
+    color_mark:    document.getElementById('m-color').value,
+    notes:         document.getElementById('m-notes').value,
+    group_ids:     [...document.querySelectorAll('.m-group-chk:checked')].map(i => parseInt(i.value, 10)),
+  };
+
+  if (!body.first_name || !body.last_name) {
+    toast('Vor- und Nachname sind Pflichtfelder', 'warn'); return;
+  }
+
+  try {
+    const m = state.currentMember;
+    if (m && m.id) {
+      await api(`/api/members/${m.id}`, { method: 'PUT', body });
+      toast('Gespeichert', 'success');
+    } else {
+      const created = await api('/api/members', { method: 'POST', body });
+      toast(`Mitglied ${created.member_number} angelegt`, 'success');
+    }
+    navigate('members');
+  } catch (e) { toast('Fehler: ' + e.message, 'error'); }
+}
+
+async function deleteMemberFromForm(id) {
+  const ok = await confirmDialog('Mitglied löschen?',
+    '<p>Alle Daten und Dokumente werden unwiderruflich entfernt.</p>',
+    { confirmText: 'Löschen', danger: true });
+  if (!ok) return;
+  try {
+    await api(`/api/members/${id}`, { method: 'DELETE' });
+    toast('Gelöscht', 'success');
+    navigate('members');
+  } catch (e) { toast('Fehler: ' + e.message, 'error'); }
+}
+
+/* ═════════════════════════════════════════════════════════════════════
+ * GRUPPEN
+ * ═════════════════════════════════════════════════════════════════════ */
+async function renderGroups() {
+  try {
+    state.groupsTree = await api('/api/groups/tree');
+    state.groupsFlat = await api('/api/groups');
+    const root = document.getElementById('group-tree');
+    root.innerHTML = state.groupsTree.length
+      ? renderGroupTreeHtml(state.groupsTree)
+      : '<li class="empty-state">Noch keine Abteilungen angelegt. Klicke oben rechts auf „+ Abteilung".</li>';
+  } catch (e) { toast('Fehler: ' + e.message, 'error'); }
+}
+
+function renderGroupTreeHtml(nodes) {
+  return nodes.map(g => `
+    <li>
+      <div class="tree-row">
+        <div class="tree-color" style="background:${g.color};"></div>
+        <span class="tree-level">${g.level === 1 ? 'ABT' : g.level === 2 ? 'SPORT' : 'GRP'}</span>
+        <span class="tree-name">${escapeHtml(g.name)}</span>
+        <span class="tree-count">${g.total_members} ${g.total_members === 1 ? 'Mitglied' : 'Mitglieder'}</span>
+        <div class="btn-row">
+          ${g.level < 3 ? `<button class="btn btn-sm" onclick="openGroupForm(null, ${g.level + 1}, ${g.id})">+ ${g.level === 1 ? 'Sportart' : 'Gruppe'}</button>` : ''}
+          <button class="btn-icon" title="Bearbeiten" onclick="openGroupForm(${g.id})">✎</button>
+          <button class="btn-icon danger" title="Löschen" onclick="deleteGroup(${g.id})">🗑</button>
+        </div>
+      </div>
+      ${g.children && g.children.length ? `<ul>${renderGroupTreeHtml(g.children)}</ul>` : ''}
+    </li>`).join('');
+}
+
+function openGroupForm(id = null, level = 1, parentId = null) {
+  const existing = id ? state.groupsFlat.find(g => g.id === id) : null;
+  const isEdit = !!existing;
+  const g = existing || { name: '', description: '', color: '#4CAF50', level, parent_id: parentId };
+  const title = isEdit ? `Gruppe bearbeiten` :
+    `Neue ${level === 1 ? 'Abteilung' : level === 2 ? 'Sportart' : 'Gruppe'}`;
+
+  const m = modalOpen(`
+    <h3>${escapeHtml(title)}</h3>
+    <div class="body">
+      <div class="field"><label>Name *</label>
+        <input type="text" id="g-name" value="${escapeHtml(g.name)}" autofocus></div>
+      <div class="field"><label>Beschreibung</label>
+        <input type="text" id="g-desc" value="${escapeHtml(g.description || '')}"></div>
+      <div class="field"><label>Farbe ${isEdit && g.level > 1 ? '(kaskadiert auf Kinder)' : ''}</label>
+        <input type="color" id="g-color" value="${g.color || '#4CAF50'}"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="modalClose()">Abbrechen</button>
+      <button class="btn btn-primary" id="g-save">✓ Speichern</button>
+    </div>`);
+
+  m.querySelector('#g-save').onclick = async () => {
+    const body = {
+      name:        document.getElementById('g-name').value.trim(),
+      description: document.getElementById('g-desc').value.trim(),
+      color:       document.getElementById('g-color').value,
+    };
+    if (!body.name) { toast('Name ist Pflicht', 'warn'); return; }
+    try {
+      if (isEdit) {
+        await api(`/api/groups/${id}`, { method: 'PUT', body });
+      } else {
+        body.level = level;
+        body.parent_id = parentId;
+        await api('/api/groups', { method: 'POST', body });
+      }
+      toast('Gruppe gespeichert', 'success');
+      modalClose();
+      renderGroups();
+      state.groupsFlat = []; state.groupsTree = [];
+    } catch (e) { toast('Fehler: ' + e.message, 'error'); }
+  };
+}
+
+async function deleteGroup(id) {
+  const g = state.groupsFlat.find(x => x.id === id);
+  const msg = g.level < 3
+    ? `<p>Alle Untergruppen werden ebenfalls gelöscht.</p>`
+    : '<p>Gruppe entfernen?</p>';
+  const ok = await confirmDialog(`Gruppe „${g.name}" löschen?`, msg,
+    { confirmText: 'Löschen', danger: true });
+  if (!ok) return;
+  try {
+    await api(`/api/groups/${id}`, { method: 'DELETE' });
+    toast('Gruppe gelöscht', 'success');
+    state.groupsFlat = []; state.groupsTree = [];
+    renderGroups();
+  } catch (e) { toast('Fehler: ' + e.message, 'error'); }
+}
+
+/* ═════════════════════════════════════════════════════════════════════
+ * IMPORT
+ * ═════════════════════════════════════════════════════════════════════ */
+async function renderImport() {
+  await loadGroupsIntoFilter();
+  document.getElementById('import-preview').innerHTML = '';
+}
+
+async function uploadImport() {
+  const file = document.getElementById('import-file').files[0];
+  if (!file) { toast('Bitte eine Datei auswählen', 'warn'); return; }
+  const fd = new FormData();
+  fd.append('file', file);
+
+  const preview = document.getElementById('import-preview');
+  preview.innerHTML = '<div class="loading"><span class="spinner"></span> Datei wird analysiert…</div>';
+
+  try {
+    const resp = await api('/api/import/pdf', { method: 'POST', body: fd });
+    state.importCandidates = resp.members_found || [];
+    if (resp.abteilung) {
+      toast(`Abteilung erkannt: ${resp.abteilung}`, 'info');
+    }
+    renderImportPreview(resp);
+  } catch (e) {
+    preview.innerHTML = '';
+    toast('Import-Fehler: ' + e.message, 'error');
+  }
+}
+
+function renderImportPreview(resp) {
+  const preview = document.getElementById('import-preview');
+  const rows = state.importCandidates;
+  if (!rows.length) {
+    preview.innerHTML = '<div class="empty-state">Keine Mitglieder in der Datei erkannt.</div>';
+    return;
+  }
+  preview.innerHTML = `
+    <div class="view-header">
+      <h2 style="font-size:1.1rem;">Vorschau — ${rows.length} Mitglieder${resp.abteilung ? ` (Abt.: ${escapeHtml(resp.abteilung)})` : ''}</h2>
+      <div class="btn-row">
+        <button class="btn" onclick="document.getElementById('import-preview').innerHTML='';">Verwerfen</button>
+        <button class="btn btn-primary" onclick="confirmImport()">✓ ${rows.length} Mitglieder übernehmen</button>
+      </div>
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr>
+        <th>Nr</th><th>Vorname</th><th>Nachname</th><th>Geb.</th><th>Geschl.</th>
+        <th>E-Mail</th><th>Telefon</th><th>PLZ</th><th>Ort</th><th>Eintritt</th>
+      </tr></thead>
+      <tbody>${rows.map((m, i) => `<tr>
+        <td><input class="preview-cell mono" data-i="${i}" data-k="member_number" value="${escapeHtml(m.member_number || '')}"></td>
+        <td><input class="preview-cell" data-i="${i}" data-k="first_name" value="${escapeHtml(m.first_name || '')}"></td>
+        <td><input class="preview-cell" data-i="${i}" data-k="last_name" value="${escapeHtml(m.last_name || '')}"></td>
+        <td><input class="preview-cell mono" data-i="${i}" data-k="birth_date" value="${escapeHtml(m.birth_date || '')}"></td>
+        <td><input class="preview-cell" data-i="${i}" data-k="gender" value="${escapeHtml(m.gender || '')}"></td>
+        <td><input class="preview-cell" data-i="${i}" data-k="email" value="${escapeHtml(m.email || '')}"></td>
+        <td><input class="preview-cell" data-i="${i}" data-k="phone" value="${escapeHtml(m.phone || '')}"></td>
+        <td><input class="preview-cell mono" data-i="${i}" data-k="zip_code" value="${escapeHtml(m.zip_code || '')}"></td>
+        <td><input class="preview-cell" data-i="${i}" data-k="city" value="${escapeHtml(m.city || '')}"></td>
+        <td><input class="preview-cell mono" data-i="${i}" data-k="entry_date" value="${escapeHtml(m.entry_date || '')}"></td>
+      </tr>`).join('')}</tbody>
+    </table></div>`;
+
+  preview.querySelectorAll('.preview-cell').forEach(inp => {
+    inp.oninput = () => {
+      const i = parseInt(inp.dataset.i, 10);
+      state.importCandidates[i][inp.dataset.k] = inp.value;
+    };
+  });
+}
+
+async function confirmImport() {
+  const group_id = document.getElementById('import-group').value || null;
+  try {
+    const resp = await api('/api/import/confirm', { method: 'POST',
+      body: { members: state.importCandidates, group_id } });
+    toast(`${resp.imported} importiert, ${resp.skipped} übersprungen`, 'success');
+    document.getElementById('import-preview').innerHTML = '';
+    state.importCandidates = [];
+  } catch (e) { toast('Fehler: ' + e.message, 'error'); }
+}
+
+/* ═════════════════════════════════════════════════════════════════════
+ * JAHRESAUSWERTUNG
+ * ═════════════════════════════════════════════════════════════════════ */
+function initYearly() {
+  const sel = document.getElementById('year-picker');
+  const thisYear = new Date().getFullYear();
+  const years = [];
+  for (let y = thisYear + 1; y >= 2018; y--) years.push(y);
+  sel.innerHTML = years.map(y => `<option ${y === thisYear ? 'selected' : ''}>${y}</option>`).join('');
+  renderYearly();
+}
+
+async function renderYearly() {
+  const year = document.getElementById('year-picker').value;
+  const wrap = document.getElementById('yearly-content');
+  wrap.innerHTML = '<div class="loading"><span class="spinner"></span> lädt…</div>';
+  try {
+    const d = await api(`/api/stats/yearly?year=${year}`);
+    state.yearlyData = d;
+    const arrow = d.netto >= 0 ? '▲' : '▼';
+    const arrowCls = d.netto >= 0 ? 'success' : 'danger';
+
+    wrap.innerHTML = `
+      <div class="kpi-grid">
+        <div class="kpi"><div class="kpi-value">${d.beginn}</div><div class="kpi-label">Anfangsbestand</div></div>
+        <div class="kpi success"><div class="kpi-value">+${d.zugaenge}</div><div class="kpi-label">Zugänge</div></div>
+        <div class="kpi danger"><div class="kpi-value">−${d.abgaenge}</div><div class="kpi-label">Abgänge</div></div>
+        <div class="kpi"><div class="kpi-value">${d.ende}</div><div class="kpi-label">Endbestand</div></div>
+        <div class="kpi ${arrowCls}"><div class="kpi-value">${arrow} ${d.netto >= 0 ? '+' : ''}${d.netto}</div><div class="kpi-label">Netto (${d.netto_pct >= 0 ? '+' : ''}${d.netto_pct} %)</div></div>
+      </div>
+      <div class="card"><h3>Monatliche Entwicklung</h3><canvas id="chart-yearly"></canvas></div>
+      ${renderJubilaeen(d.jubilaeen)}
+      ${renderEntryExitLists(d)}`;
+
+    drawYearlyLine(d.monatlich);
+  } catch (e) {
+    wrap.innerHTML = `<div class="empty-state">Fehler: ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+function drawYearlyLine(monthly) {
+  const canvas = document.getElementById('chart-yearly');
+  if (!canvas) return;
+  if (state.charts['chart-yearly']) state.charts['chart-yearly'].destroy();
+  const months = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+  state.charts['chart-yearly'] = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels: months,
+      datasets: [{
+        label: 'Aktive Mitglieder',
+        data: monthly.map(m => m.count),
+        borderColor: getCssVar('--primary') || '#3156a3',
+        backgroundColor: 'rgba(49,86,163,.08)',
+        tension: .25, fill: true, borderWidth: 2, pointRadius: 4,
+      }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: false } },
+    },
+  });
+}
+function getCssVar(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+
+function renderJubilaeen(list) {
+  if (!list.length) return '';
+  return `<div class="card" style="margin-top:1rem;">
+    <h3>Jubiläen (${list.length})</h3>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Jahre</th><th>Name</th><th>Eintritt</th></tr></thead>
+      <tbody>${list.map(j => `<tr>
+        <td><strong>${j.years}</strong></td>
+        <td>${escapeHtml(j.last_name)}, ${escapeHtml(j.first_name)}</td>
+        <td>${formatDate(j.entry_date)}</td>
+      </tr>`).join('')}</tbody>
+    </table></div>
+  </div>`;
+}
+
+function renderEntryExitLists(d) {
+  const list = (title, rows, dateField) => !rows.length ? '' :
+    `<div class="card" style="margin-top:1rem;">
+      <h3>${title} (${rows.length})</h3>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Name</th><th>Datum</th><th>Gruppen</th></tr></thead>
+        <tbody>${rows.map(r => `<tr>
+          <td>${escapeHtml(r.last_name)}, ${escapeHtml(r.first_name)}</td>
+          <td>${formatDate(r[dateField])}</td>
+          <td>${(r.groups || []).map(g => escapeHtml(g.name)).join(', ') || '<span class="text-muted">—</span>'}</td>
+        </tr>`).join('')}</tbody>
+      </table></div>
+    </div>`;
+  return list('Zugänge', d.zugaenge_list, 'entry_date') + list('Abgänge', d.abgaenge_list, 'exit_date');
+}
+
+function downloadYearlyPdf() {
+  const year = document.getElementById('year-picker').value;
+  window.location.href = `/api/export/yearly-pdf?year=${year}`;
+}
+
+/* ═════════════════════════════════════════════════════════════════════
+ * EINSTELLUNGEN
+ * ═════════════════════════════════════════════════════════════════════ */
+async function renderSettings() {
+  try {
+    state.settings = await api('/api/settings');
+    if (!state.groupsTree.length) {
+      state.groupsTree = await api('/api/groups/tree');
+      state.groupsFlat = await api('/api/groups');
+    }
+  } catch (e) { toast('Fehler: ' + e.message, 'error'); return; }
+
+  const s = state.settings;
+  const wrap = document.getElementById('settings-content');
+  wrap.innerHTML = `
+    <div class="settings-section card">
+      <h2>Farbschema</h2>
+      <div class="form-row">
+        ${Object.entries(s.colors).map(([k, v]) => `
+          <div class="field"><label>${escapeHtml(k.replace('_', ' '))}</label>
+            <input type="color" data-set="colors.${k}" value="${v}" oninput="applyColorPreview()"></div>`).join('')}
+      </div>
+    </div>
+
+    <div class="settings-section card">
+      <h2>Tabellen-Anzeige</h2>
+      ${Object.entries(s.display).map(([k, v]) => `
+        <label style="display:block;padding:.3rem 0;">
+          <input type="checkbox" data-set="display.${k}" ${v ? 'checked' : ''}>
+          ${displayLabel(k)}
+        </label>`).join('')}
+    </div>
+
+    <div class="settings-section card">
+      <h2>Dokumenttypen</h2>
+      <div id="doc-type-list">
+        ${s.doc_types.map((t, i) => `
+          <div class="doc-type-row">
+            <input type="text" value="${escapeHtml(t)}" data-doc-i="${i}">
+            <button class="btn-icon danger" onclick="removeDocType(${i})">🗑</button>
+          </div>`).join('')}
+      </div>
+      <button class="btn" onclick="addDocType()">+ hinzufügen</button>
+    </div>
+
+    <div class="settings-section card">
+      <h2>Farbmarkierungen — Bedeutung</h2>
+      ${COLOR_MARKS.map(c => `
+        <div class="color-meaning-row">
+          <span class="color-dot" data-color="${c}" style="cursor:default;"></span>
+          <input type="text" data-set="color_meanings.${c}" value="${escapeHtml(s.color_meanings[c] || '')}"
+            placeholder="Bedeutung für ${c}" style="flex:1;">
+        </div>`).join('')}
+    </div>
+
+    <div class="settings-section card">
+      <h2>Gruppen-Verwaltung</h2>
+      <p class="text-muted">Abteilungen, Sportarten und Gruppen auch direkt auf der <a href="#" onclick="event.preventDefault();navigate('groups')">Gruppen-Seite</a> verwalten.</p>
+      <ul class="tree" style="margin-top:.5rem;">
+        ${state.groupsTree.length ? renderGroupTreeHtml(state.groupsTree) :
+          '<li class="text-muted">Noch keine Gruppen angelegt.</li>'}
+      </ul>
+      <button class="btn" onclick="openGroupForm(null, 1)">+ Abteilung</button>
+    </div>`;
+}
+
+function displayLabel(k) {
+  const map = {
+    show_member_number: 'Mitgliedsnummer anzeigen',
+    show_age:           'Alter anzeigen',
+    show_gender:        'Geschlecht anzeigen',
+    show_email:         'E-Mail anzeigen',
+    show_phone:         'Telefon anzeigen',
+    stale_detection:    'Karteileichen-Erkennung aktiv',
+  };
+  return map[k] || k;
+}
+
+function applyColorPreview() {
+  document.querySelectorAll('[data-set^="colors."]').forEach(inp => {
+    const varName = '--' + inp.dataset.set.split('.')[1].replace('_', '-');
+    document.documentElement.style.setProperty(varName, inp.value);
+  });
+}
+
+function addDocType() {
+  state.settings.doc_types.push('');
+  renderSettings();
+}
+function removeDocType(i) {
+  state.settings.doc_types.splice(i, 1);
+  renderSettings();
+}
+
+async function saveSettings() {
+  const body = { colors: {}, display: {}, color_meanings: {}, doc_types: [] };
+  document.querySelectorAll('[data-set]').forEach(inp => {
+    const [sec, key] = inp.dataset.set.split('.');
+    const val = inp.type === 'checkbox' ? inp.checked : inp.value;
+    body[sec][key] = val;
+  });
+  body.doc_types = [...document.querySelectorAll('[data-doc-i]')]
+    .map(i => i.value.trim()).filter(Boolean);
+
+  try {
+    state.settings = await api('/api/settings', { method: 'PUT', body });
+    applySettingsToUi(state.settings);
+    toast('Einstellungen gespeichert', 'success');
+  } catch (e) { toast('Fehler: ' + e.message, 'error'); }
+}
+
+async function resetSettings() {
+  const ok = await confirmDialog('Einstellungen zurücksetzen?',
+    '<p>Alle Farben, Anzeigeoptionen, Dokumenttypen und Farbmarkierungs-Bedeutungen werden auf die Standardwerte zurückgesetzt.</p><p class="text-muted">Gruppen und Mitgliederdaten bleiben erhalten.</p>',
+    { confirmText: 'Zurücksetzen', danger: false });
+  if (!ok) return;
+  try {
+    state.settings = await api('/api/settings/reset', { method: 'POST' });
+    applySettingsToUi(state.settings);
+    renderSettings();
+    toast('Einstellungen zurückgesetzt', 'success');
+  } catch (e) { toast('Fehler: ' + e.message, 'error'); }
+}
+
+function applySettingsToUi(s) {
+  if (!s || !s.colors) return;
+  const map = {
+    primary: '--primary', sidebar_bg: '--sidebar-bg',
+    page_bg: '--page-bg', card_bg: '--card-bg',
+    text: '--text', border: '--border',
+  };
+  Object.entries(s.colors).forEach(([k, v]) => {
+    if (map[k]) document.documentElement.style.setProperty(map[k], v);
+  });
+}
+
+/* ═════════════════════════════════════════════════════════════════════
+ * INIT
+ * ═════════════════════════════════════════════════════════════════════ */
+async function init() {
+  try {
+    state.settings = await api('/api/settings');
+    applySettingsToUi(state.settings);
+  } catch (e) {
+    toast('Server nicht erreichbar: ' + e.message, 'error', 6000);
+  }
+
+  document.querySelectorAll('.nav-link').forEach(a => {
+    a.addEventListener('click', (e) => {
+      e.preventDefault();
+      navigate(a.dataset.nav);
+    });
+  });
+
+  window.addEventListener('hashchange', () => {
+    const view = (location.hash || '#dashboard').slice(1);
+    if (state.view !== view) navigate(view);
+  });
+
+  const start = (location.hash || '#dashboard').slice(1);
+  navigate(['dashboard','members','groups','import','yearly','settings'].includes(start)
+    ? start : 'dashboard');
+}
+
+document.addEventListener('DOMContentLoaded', init);
+
+/* Global exports, damit onclick-Handler sie finden */
+Object.assign(window, {
+  navigate, openMemberForm, deleteMember, deleteMemberFromForm, saveMemberForm,
+  toggleSelect, toggleSelectAll, bulkDeleteMembers, deleteAllMembers, cycleColor,
+  sortMembers, exportCSV,
+  uploadDocument, deleteDocument,
+  openGroupForm, deleteGroup, modalClose,
+  uploadImport, confirmImport,
+  renderYearly, downloadYearlyPdf,
+  saveSettings, resetSettings, applyColorPreview,
+  addDocType, removeDocType,
+});
+</script>
+</body>
+</html>
