@@ -69,9 +69,13 @@ LOG=~/Library/Logs/TuS-Mitgliederverwaltung.log
 echo "[Launcher] start $(date)" > "$LOG"
 export PATH=/opt/homebrew/bin:/usr/local/bin:$PATH
 lsof -ti:5000 -ti:5001 | xargs kill -9 >/dev/null 2>&1
-cd "__PROJECT_DIR__" 2>>"$LOG" || { echo "cd failed" >> "$LOG"; exit 1; }
-echo "[Launcher] starte Python …" >> "$LOG"
-nohup ./venv/bin/python3 run.py >> "$LOG" 2>&1 &
+PROJECT="__PROJECT_DIR__"
+PYTHON="$PROJECT/venv/bin/python3"
+echo "[Launcher] starte $PYTHON" >> "$LOG"
+cd "$PROJECT" 2>>"$LOG" || { echo "cd failed" >> "$LOG"; exit 1; }
+"$PYTHON" run.py >> "$LOG" 2>&1 &
+disown
+echo "[Launcher] PID $!" >> "$LOG"
 SHELLEOF
 sed -i '' "s|__PROJECT_DIR__|${PROJECT_DIR}|" "$LAUNCH_SH"
 chmod +x "$LAUNCH_SH"
