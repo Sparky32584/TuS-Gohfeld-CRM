@@ -1828,27 +1828,14 @@ function formatBytes(b) {
 }
 
 async function downloadImage(dataUrl, filename) {
-  const mimeMap = { webp: 'image/webp', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png' };
-  const ext = filename.split('.').pop().toLowerCase();
-  const mime = mimeMap[ext] || 'image/webp';
-  try {
-    // Versuche zuerst über Backend (funktioniert in pywebview)
-    const resp = await fetch('/api/images/download', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ data: dataUrl, filename, mime })
-    });
-    if (resp.ok) {
-      const blob = await resp.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = filename;
-      document.body.appendChild(a); a.click();
-      setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
+  // Bevorzugt: nativer macOS Save-Dialog via pywebview
+  if (window.pywebview && window.pywebview.api && window.pywebview.api.save_file) {
+    try {
+      await window.pywebview.api.save_file(filename, dataUrl);
       return;
-    }
-  } catch(e) {}
-  // Fallback: direkt
+    } catch(e) {}
+  }
+  // Browser-Fallback
   const a = document.createElement('a');
   a.href = dataUrl; a.download = filename;
   document.body.appendChild(a); a.click();

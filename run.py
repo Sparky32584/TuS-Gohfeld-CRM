@@ -153,6 +153,24 @@ def main() -> None:
         # pywebview-Fenster öffnen
         import webview  # noqa: WPS433
 
+        class Api:
+            def save_file(self, filename: str, data_url: str) -> bool:
+                """Speichert eine Data-URL via nativem macOS Save-Dialog."""
+                import base64
+
+                raw = data_url.split(",", 1)[1] if "," in data_url else data_url
+                binary = base64.b64decode(raw)
+
+                target = webview.windows[0].create_file_dialog(
+                    webview.SAVE_DIALOG, save_filename=filename
+                )
+                if not target:
+                    return False
+                path = target if isinstance(target, str) else target[0]
+                with open(path, "wb") as f:
+                    f.write(binary)
+                return True
+
         webview.create_window(
             title="TuS Gohfeld — Mitgliederverwaltung",
             url=url,
@@ -162,6 +180,7 @@ def main() -> None:
             resizable=True,
             text_select=True,
             confirm_close=False,
+            js_api=Api(),
         )
         webview.start(gui="cocoa", debug=False)
 
