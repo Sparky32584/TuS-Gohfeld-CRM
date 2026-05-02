@@ -96,6 +96,9 @@ cat > "$APP_DIR/Contents/MacOS/launcher" <<EOF
 # Generiert durch create-app.sh am $(date)
 cd "${PROJECT_DIR}"
 
+# Laufende Instanz beenden
+lsof -ti:5000 -ti:5001 | xargs kill -9 2>/dev/null
+
 # .env.local einlesen (für TUS_DATA_DIR)
 if [ -f ".env.local" ]; then
     source .env.local
