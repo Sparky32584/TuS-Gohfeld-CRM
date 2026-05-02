@@ -803,7 +803,8 @@ function drawDoughnut(canvasId, data) {
 }
 
 async function exportCSV() {
-  window.location.href = '/api/export/csv';
+  const date = new Date().toISOString().slice(0, 10);
+  await downloadFromUrl('/api/export/csv', `tus-mitglieder_${date}.csv`);
 }
 
 /* ═════════════════════════════════════════════════════════════════════
@@ -1186,7 +1187,7 @@ function renderMemberDocuments(docs, types, memberId) {
   const list = docs.length ? `<div class="docs-list">
     ${docs.map(d => `
       <div class="doc-item">
-        <span class="doc-name" onclick="window.location.href='/api/documents/${d.id}/download'">${escapeHtml(d.original_name)}</span>
+        <span class="doc-name" onclick="downloadFromUrl('/api/documents/${d.id}/download', '${escapeHtml(d.original_name)}')">${escapeHtml(d.original_name)}</span>
         <span class="doc-type">${escapeHtml(d.doc_type)}</span>
         <span class="text-muted nowrap">${escapeHtml(d.uploaded_at || '')}</span>
         <button class="btn-icon danger" title="Löschen" onclick="deleteDocument(${d.id})">🗑</button>
@@ -1553,9 +1554,9 @@ function renderEntryExitLists(d) {
   return list('Zugänge', d.zugaenge_list, 'entry_date') + list('Abgänge', d.abgaenge_list, 'exit_date');
 }
 
-function downloadYearlyPdf() {
+async function downloadYearlyPdf() {
   const year = document.getElementById('year-picker').value;
-  window.location.href = `/api/export/yearly-pdf?year=${year}`;
+  await downloadFromUrl(`/api/export/yearly-pdf?year=${year}`, `TuS_Jahresbericht_${year}.pdf`);
 }
 
 /* ═════════════════════════════════════════════════════════════════════
@@ -1840,6 +1841,32 @@ async function downloadImage(dataUrl, filename) {
   a.href = dataUrl; a.download = filename;
   document.body.appendChild(a); a.click();
   setTimeout(() => a.remove(), 500);
+}
+
+async function downloadFromUrl(url, fallbackFilename) {
+  // pywebview: Datei holen, in Data-URL umwandeln, nativen Save-Dialog öffnen
+  if (window.pywebview && window.pywebview.api && window.pywebview.api.save_file) {
+    try {
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error('fetch failed');
+      // Filename aus Content-Disposition lesen, sonst fallback
+      let filename = fallbackFilename;
+      const cd = resp.headers.get('Content-Disposition') || '';
+      const m = cd.match(/filename\*?=(?:UTF-8'')?["']?([^"';]+)["']?/i);
+      if (m) filename = decodeURIComponent(m[1]);
+      const blob = await resp.blob();
+      const dataUrl = await new Promise((res, rej) => {
+        const r = new FileReader();
+        r.onloadend = () => res(r.result);
+        r.onerror = rej;
+        r.readAsDataURL(blob);
+      });
+      await window.pywebview.api.save_file(filename, dataUrl);
+      return;
+    } catch(e) {}
+  }
+  // Browser-Fallback
+  window.location.href = url;
 }
 
 function addImageResult(dataUrl, outName, origName, origSize, newSize, w, h, ow, oh) {
