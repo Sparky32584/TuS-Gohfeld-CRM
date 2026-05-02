@@ -2109,5 +2109,26 @@ def main() -> None:
     app.run(host="127.0.0.1", port=5000, debug=False, use_reloader=False)
 
 
+# ─── Bildkonverter Download-Endpoint ────────────────────────────────────────
+@app.route("/api/images/download", methods=["POST"])
+def image_download():
+    """Empfängt base64-Bilddaten und gibt sie als Datei-Download zurück."""
+    import base64
+    data = request.get_json()
+    if not data or "data" not in data:
+        abort(400)
+    raw = data["data"]
+    # "data:image/webp;base64,XXXX" → nur den base64-Teil
+    if "," in raw:
+        raw = raw.split(",", 1)[1]
+    img_bytes = base64.b64decode(raw)
+    filename = secure_filename(data.get("filename", "bild.webp"))
+    mime = data.get("mime", "image/webp")
+    buf = io.BytesIO(img_bytes)
+    buf.seek(0)
+    return send_file(buf, as_attachment=True, download_name=filename,
+                     mimetype=mime)
+
+
 if __name__ == "__main__":
     main()
