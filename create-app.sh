@@ -90,27 +90,45 @@ cat > "$APP_DIR/Contents/Info.plist" <<EOF
 </plist>
 EOF
 
-# ---- Launcher-Skript ----
-cat > "$APP_DIR/Contents/MacOS/launcher" <<EOF
+# ---- Launcher: kompilierte C-Binary (statt Bash-Skript) ----
+# Grund: macOS gewährt Full Disk Access nur an echte Binaries zuverlässig,
+# nicht an Shell-Skripte als CFBundleExecutable.
+info "Kompiliere Launcher-Binary …"
+LAUNCHER_C="$(mktemp -d)/launcher.c"
+cat > "$LAUNCHER_C" <<EOF
+#include <stdlib.h>
+#include <unistd.h>
+#include <stdio.h>
+#include <sys/types.h>
+#include <signal.h>
+
+int main(int argc, char *argv[]) {
+    /* Laufende Instanzen auf Port 5000/5001 beenden */
+    system("lsof -ti:5000 -ti:5001 | xargs kill -9 2>/dev/null");
+
+    if (chdir("${PROJECT_DIR}") != 0) {
+        perror("chdir");
+        return 1;
+    }
+
+    char *python = "./venv/bin/python3";
+    char *args[] = { python, "run.py", NULL };
+    execv(python, args);
+    perror("execv");
+    return 1;
+}
+EOF
+clang -o "$APP_DIR/Contents/MacOS/launcher" "$LAUNCHER_C" 2>&1 || {
+    warn "clang nicht verfügbar — fallback auf Bash-Launcher"
+    cat > "$APP_DIR/Contents/MacOS/launcher" <<EOF
 #!/bin/bash
-# Generiert durch create-app.sh am $(date)
 cd "${PROJECT_DIR}"
-
-# Laufende Instanz beenden
 lsof -ti:5000 -ti:5001 | xargs kill -9 2>/dev/null
-
-# Homebrew-PATH
-if [ -d "/opt/homebrew/bin" ]; then
-    export PATH="/opt/homebrew/bin:\$PATH"
-fi
-if [ -d "/usr/local/bin" ]; then
-    export PATH="/usr/local/bin:\$PATH"
-fi
-
-# Start
 exec ./venv/bin/python3 run.py
 EOF
+}
 chmod +x "$APP_DIR/Contents/MacOS/launcher"
+rm -rf "$(dirname "$LAUNCHER_C")"
 
 # ---- Icon: Logo aus static/ kopieren und in .icns konvertieren (falls vorhanden) ----
 if [ -f "static/logo.png" ]; then
