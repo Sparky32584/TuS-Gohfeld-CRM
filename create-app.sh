@@ -99,11 +99,6 @@ cd "${PROJECT_DIR}"
 # Laufende Instanz beenden
 lsof -ti:5000 -ti:5001 | xargs kill -9 2>/dev/null
 
-# .env.local einlesen (für TUS_DATA_DIR)
-if [ -f ".env.local" ]; then
-    source .env.local
-fi
-
 # Homebrew-PATH
 if [ -d "/opt/homebrew/bin" ]; then
     export PATH="/opt/homebrew/bin:\$PATH"
