@@ -51,101 +51,36 @@ if [ -d "$APP_DIR" ]; then
     rm -rf "$APP_DIR"
 fi
 
-# ---- Bundle-Struktur anlegen ----
-info "Erstelle Bundle-Struktur …"
-mkdir -p "$APP_DIR/Contents/MacOS"
-mkdir -p "$APP_DIR/Contents/Resources"
+# ---- AppleScript-App via osacompile erzeugen ----
+# Grund: macOS akzeptiert AppleScript-Apps zuverlässig (keine Gatekeeper-Blockade
+# wie bei unsignierten C-Binaries oder Bash-Launchern).
+info "Erzeuge AppleScript-App …"
+LOG_PATH="\$HOME/Library/Logs/TuS-Mitgliederverwaltung.log"
+osacompile -o "$APP_DIR" -e "
+do shell script \"
+mkdir -p ~/Library/Logs
+echo '[Launcher] start '\$(date) > $LOG_PATH 2>&1
+export PATH=/opt/homebrew/bin:/usr/local/bin:\\\$PATH
+lsof -ti:5000 -ti:5001 | xargs kill -9 >/dev/null 2>&1
+cd '${PROJECT_DIR}' 2>>$LOG_PATH || { echo 'cd failed' >> $LOG_PATH; exit 1; }
+nohup ./venv/bin/python3 run.py >> $LOG_PATH 2>&1 &
+\"
+"
 
-# ---- Info.plist ----
-cat > "$APP_DIR/Contents/Info.plist" <<EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>CFBundleName</key>
-    <string>${APP_NAME}</string>
-    <key>CFBundleDisplayName</key>
-    <string>${APP_NAME}</string>
-    <key>CFBundleIdentifier</key>
-    <string>${BUNDLE_ID}</string>
-    <key>CFBundleVersion</key>
-    <string>1.0.0</string>
-    <key>CFBundleShortVersionString</key>
-    <string>1.0</string>
-    <key>CFBundleExecutable</key>
-    <string>launcher</string>
-    <key>CFBundleIconFile</key>
-    <string>AppIcon</string>
-    <key>CFBundlePackageType</key>
-    <string>APPL</string>
-    <key>LSMinimumSystemVersion</key>
-    <string>11.0</string>
-    <key>NSHighResolutionCapable</key>
-    <true/>
-    <key>NSRequiresAquaSystemAppearance</key>
-    <false/>
-    <key>LSApplicationCategoryType</key>
-    <string>public.app-category.productivity</string>
-</dict>
-</plist>
-EOF
-
-# ---- Launcher: kompilierte C-Binary (statt Bash-Skript) ----
-# Grund: macOS gewährt Full Disk Access nur an echte Binaries zuverlässig,
-# nicht an Shell-Skripte als CFBundleExecutable.
-info "Kompiliere Launcher-Binary …"
-LAUNCHER_C="$(mktemp -d)/launcher.c"
-cat > "$LAUNCHER_C" <<EOF
-#include <stdlib.h>
-#include <unistd.h>
-#include <stdio.h>
-#include <sys/types.h>
-#include <signal.h>
-
-int main(int argc, char *argv[]) {
-    /* stdout/stderr in Logdatei umlenken (für Diagnose bei Icon-Start) */
-    const char *home = getenv("HOME");
-    char log_path[1024];
-    snprintf(log_path, sizeof(log_path), "%s/Library/Logs/TuS-Mitgliederverwaltung.log",
-             home ? home : "/tmp");
-    freopen(log_path, "w", stdout);
-    freopen(log_path, "a", stderr);
-    fprintf(stderr, "[Launcher] gestartet, chdir nach ${PROJECT_DIR}\n");
-
-    /* Homebrew-PATH ergänzen (für Icon-Start ohne Shell-Init) */
-    const char *old_path = getenv("PATH");
-    char new_path[2048];
-    snprintf(new_path, sizeof(new_path), "/opt/homebrew/bin:/usr/local/bin:%s",
-             old_path ? old_path : "/usr/bin:/bin");
-    setenv("PATH", new_path, 1);
-
-    /* Laufende Instanzen auf Port 5000/5001 beenden */
-    system("lsof -ti:5000 -ti:5001 | xargs kill -9 2>/dev/null");
-
-    if (chdir("${PROJECT_DIR}") != 0) {
-        perror("chdir");
-        return 1;
-    }
-
-    char *python = "./venv/bin/python3";
-    char *args[] = { python, "run.py", NULL };
-    fprintf(stderr, "[Launcher] starte %s run.py\n", python);
-    execv(python, args);
-    perror("execv");
-    return 1;
-}
-EOF
-clang -o "$APP_DIR/Contents/MacOS/launcher" "$LAUNCHER_C" 2>&1 || {
-    warn "clang nicht verfügbar — fallback auf Bash-Launcher"
-    cat > "$APP_DIR/Contents/MacOS/launcher" <<EOF
-#!/bin/bash
-cd "${PROJECT_DIR}"
-lsof -ti:5000 -ti:5001 | xargs kill -9 2>/dev/null
-exec ./venv/bin/python3 run.py
-EOF
-}
-chmod +x "$APP_DIR/Contents/MacOS/launcher"
-rm -rf "$(dirname "$LAUNCHER_C")"
+# ---- Info.plist patchen (Name, Identifier, Icon) ----
+PLIST="$APP_DIR/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :CFBundleName '${APP_NAME}'" "$PLIST" 2>/dev/null || \
+    /usr/libexec/PlistBuddy -c "Add :CFBundleName string '${APP_NAME}'" "$PLIST"
+/usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName '${APP_NAME}'" "$PLIST" 2>/dev/null || \
+    /usr/libexec/PlistBuddy -c "Add :CFBundleDisplayName string '${APP_NAME}'" "$PLIST"
+/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier '${BUNDLE_ID}'" "$PLIST" 2>/dev/null || \
+    /usr/libexec/PlistBuddy -c "Add :CFBundleIdentifier string '${BUNDLE_ID}'" "$PLIST"
+/usr/libexec/PlistBuddy -c "Set :CFBundleIconFile 'AppIcon'" "$PLIST" 2>/dev/null || \
+    /usr/libexec/PlistBuddy -c "Add :CFBundleIconFile string 'AppIcon'" "$PLIST"
+/usr/libexec/PlistBuddy -c "Set :NSHighResolutionCapable true" "$PLIST" 2>/dev/null || \
+    /usr/libexec/PlistBuddy -c "Add :NSHighResolutionCapable bool true" "$PLIST"
+# Standard applet.icns entfernen (unser Icon ersetzt es)
+rm -f "$APP_DIR/Contents/Resources/applet.icns"
 
 # ---- Icon: Logo aus static/ kopieren und in .icns konvertieren (falls vorhanden) ----
 if [ -f "static/logo.png" ]; then
