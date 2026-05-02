@@ -13,7 +13,7 @@ set -e
 cd "$(dirname "$0")"
 
 # ---- Konfiguration ----
-APP_NAME="TuS Gohfeld"
+APP_NAME="TuS Mitgliederverwaltung"
 APP_DIR="$HOME/Applications/${APP_NAME}.app"
 PROJECT_DIR="$(pwd)"
 BUNDLE_ID="de.tus-gohfeld.mitgliederverwaltung"
