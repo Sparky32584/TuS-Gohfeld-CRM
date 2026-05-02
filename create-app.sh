@@ -103,6 +103,22 @@ cat > "$LAUNCHER_C" <<EOF
 #include <signal.h>
 
 int main(int argc, char *argv[]) {
+    /* stdout/stderr in Logdatei umlenken (für Diagnose bei Icon-Start) */
+    const char *home = getenv("HOME");
+    char log_path[1024];
+    snprintf(log_path, sizeof(log_path), "%s/Library/Logs/TuS-Mitgliederverwaltung.log",
+             home ? home : "/tmp");
+    freopen(log_path, "w", stdout);
+    freopen(log_path, "a", stderr);
+    fprintf(stderr, "[Launcher] gestartet, chdir nach ${PROJECT_DIR}\n");
+
+    /* Homebrew-PATH ergänzen (für Icon-Start ohne Shell-Init) */
+    const char *old_path = getenv("PATH");
+    char new_path[2048];
+    snprintf(new_path, sizeof(new_path), "/opt/homebrew/bin:/usr/local/bin:%s",
+             old_path ? old_path : "/usr/bin:/bin");
+    setenv("PATH", new_path, 1);
+
     /* Laufende Instanzen auf Port 5000/5001 beenden */
     system("lsof -ti:5000 -ti:5001 | xargs kill -9 2>/dev/null");
 
@@ -113,6 +129,7 @@ int main(int argc, char *argv[]) {
 
     char *python = "./venv/bin/python3";
     char *args[] = { python, "run.py", NULL };
+    fprintf(stderr, "[Launcher] starte %s run.py\n", python);
     execv(python, args);
     perror("execv");
     return 1;
