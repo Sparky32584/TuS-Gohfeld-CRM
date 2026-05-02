@@ -55,28 +55,37 @@ fi
 # Grund: macOS akzeptiert AppleScript-Apps zuverlässig (keine Gatekeeper-Blockade
 # wie bei unsignierten C-Binaries oder Bash-Launchern).
 info "Erzeuge AppleScript-App …"
-LOG_PATH="\$HOME/Library/Logs/TuS-Mitgliederverwaltung.log"
-osacompile -o "$APP_DIR" -e "
-do shell script \"
+osacompile -o "$APP_DIR" -e 'do shell script (quoted form of (POSIX path of (path to me)) & "Contents/Resources/run-app.sh")' || {
+    warn "osacompile fehlgeschlagen"
+    exit 1
+}
+
+# ---- Shell-Launcher in Bundle-Resources schreiben ----
+LAUNCH_SH="$APP_DIR/Contents/Resources/run-app.sh"
+cat > "$LAUNCH_SH" <<'SHELLEOF'
+#!/bin/bash
 mkdir -p ~/Library/Logs
-echo '[Launcher] start '\$(date) > $LOG_PATH 2>&1
-export PATH=/opt/homebrew/bin:/usr/local/bin:\\\$PATH
+LOG=~/Library/Logs/TuS-Mitgliederverwaltung.log
+echo "[Launcher] start $(date)" > "$LOG"
+export PATH=/opt/homebrew/bin:/usr/local/bin:$PATH
 lsof -ti:5000 -ti:5001 | xargs kill -9 >/dev/null 2>&1
-cd '${PROJECT_DIR}' 2>>$LOG_PATH || { echo 'cd failed' >> $LOG_PATH; exit 1; }
-nohup ./venv/bin/python3 run.py >> $LOG_PATH 2>&1 &
-\"
-"
+cd "__PROJECT_DIR__" 2>>"$LOG" || { echo "cd failed" >> "$LOG"; exit 1; }
+echo "[Launcher] starte Python …" >> "$LOG"
+nohup ./venv/bin/python3 run.py >> "$LOG" 2>&1 &
+SHELLEOF
+sed -i '' "s|__PROJECT_DIR__|${PROJECT_DIR}|" "$LAUNCH_SH"
+chmod +x "$LAUNCH_SH"
 
 # ---- Info.plist patchen (Name, Identifier, Icon) ----
 PLIST="$APP_DIR/Contents/Info.plist"
-/usr/libexec/PlistBuddy -c "Set :CFBundleName '${APP_NAME}'" "$PLIST" 2>/dev/null || \
-    /usr/libexec/PlistBuddy -c "Add :CFBundleName string '${APP_NAME}'" "$PLIST"
-/usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName '${APP_NAME}'" "$PLIST" 2>/dev/null || \
-    /usr/libexec/PlistBuddy -c "Add :CFBundleDisplayName string '${APP_NAME}'" "$PLIST"
-/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier '${BUNDLE_ID}'" "$PLIST" 2>/dev/null || \
-    /usr/libexec/PlistBuddy -c "Add :CFBundleIdentifier string '${BUNDLE_ID}'" "$PLIST"
-/usr/libexec/PlistBuddy -c "Set :CFBundleIconFile 'AppIcon'" "$PLIST" 2>/dev/null || \
-    /usr/libexec/PlistBuddy -c "Add :CFBundleIconFile string 'AppIcon'" "$PLIST"
+/usr/libexec/PlistBuddy -c "Set :CFBundleName ${APP_NAME}" "$PLIST" 2>/dev/null || \
+    /usr/libexec/PlistBuddy -c "Add :CFBundleName string ${APP_NAME}" "$PLIST"
+/usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName ${APP_NAME}" "$PLIST" 2>/dev/null || \
+    /usr/libexec/PlistBuddy -c "Add :CFBundleDisplayName string ${APP_NAME}" "$PLIST"
+/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier ${BUNDLE_ID}" "$PLIST" 2>/dev/null || \
+    /usr/libexec/PlistBuddy -c "Add :CFBundleIdentifier string ${BUNDLE_ID}" "$PLIST"
+/usr/libexec/PlistBuddy -c "Set :CFBundleIconFile AppIcon" "$PLIST" 2>/dev/null || \
+    /usr/libexec/PlistBuddy -c "Add :CFBundleIconFile string AppIcon" "$PLIST"
 /usr/libexec/PlistBuddy -c "Set :NSHighResolutionCapable true" "$PLIST" 2>/dev/null || \
     /usr/libexec/PlistBuddy -c "Add :NSHighResolutionCapable bool true" "$PLIST"
 # Standard applet.icns entfernen (unser Icon ersetzt es)
